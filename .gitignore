@@ -1,0 +1,11 @@
+node_modules/
+out/
+*.vsix
+.DS_Store
+05-e2e-浏览器测试/test-results/
+playwright-report/
+*.log
+.pack-exclude-test-unit/
+04-samples-试用样例/screenshots-截图/
+07-artifacts-安装包/*.vsix
+.vscode-test/

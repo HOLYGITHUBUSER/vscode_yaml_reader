@@ -1,0 +1,121 @@
+{
+  "name": "yaml-reader",
+  "displayName": "YAML Reader",
+  "description": "YAML 阅读器：左结构树 + 右可编辑源码（分栏，可拖分隔条）",
+  "version": "0.4.0",
+  "publisher": "yaml-reader",
+  "license": "MIT",
+  "icon": "00-config-工程配置/icon-扩展图标.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HOLYGITHUBUSER/vscode_yaml_reader.git"
+  },
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:yaml",
+    "onCustomEditor:yaml-reader.editor",
+    "onCommand:yaml-reader.openReader",
+    "onCommand:yaml-reader.toggleView"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "yaml",
+        "aliases": [
+          "YAML",
+          "yaml"
+        ],
+        "extensions": [
+          ".yaml",
+          ".yml"
+        ]
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "yaml-reader.editor",
+        "displayName": "YAML Reader",
+        "selector": [
+          {
+            "filenamePattern": "*.yaml"
+          },
+          {
+            "filenamePattern": "*.yml"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "yaml-reader.openReader",
+        "title": "YAML Reader: 打开阅读器"
+      },
+      {
+        "command": "yaml-reader.toggleView",
+        "title": "YAML Reader: 切换分栏/源码/树形"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "YAML Reader",
+      "properties": {
+        "yaml-reader.defaultView": {
+          "type": "string",
+          "enum": [
+            "split",
+            "tree",
+            "source"
+          ],
+          "default": "split",
+          "description": "打开时布局：split=左树右码（推荐），tree=仅树，source=仅源码"
+        },
+        "yaml-reader.autoOpenReader": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动用 YAML Reader 打开 *.yaml / *.yml"
+        },
+        "yaml-reader.maxNodes": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 100,
+          "description": "树节点上限"
+        },
+        "yaml-reader.defaultExpandDepth": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "description": "默认展开深度"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./00-config-工程配置/tsconfig-编译配置.json",
+    "vscode:prepublish": "npm run compile",
+    "package:force": "python3 03-script-构建脚本/build-编译打包.py",
+    "package": "python3 03-script-构建脚本/build-编译打包.py --bump",
+    "lint": "tsc -p ./00-config-工程配置/tsconfig-编译配置.json --noEmit",
+    "test": "npm run compile && node --test \"out/test-单元测试/**/*.test.js\"",
+    "test:e2e": "playwright test --config 05-e2e-浏览器测试/playwright-配置.ts",
+    "test:full": "npm test && npm run test:e2e && npm run package:force"
+  },
+  "dependencies": {
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.0",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.70.0",
+    "@vscode/vsce": "^2.15.0",
+    "typescript": "^5.4.0"
+  }
+}

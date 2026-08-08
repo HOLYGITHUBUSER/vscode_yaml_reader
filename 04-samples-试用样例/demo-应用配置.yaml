@@ -1,0 +1,27 @@
+# YAML Reader 试用样例
+app:
+  name: yaml-reader-demo
+  version: 0.1.0
+  enabled: true
+  retries: 3
+  ratio: 0.85
+  notes: null
+
+server:
+  host: 127.0.0.1
+  ports:
+    - 8080
+    - 8443
+  tls:
+    enabled: false
+    cert: /etc/ssl/cert.pem
+
+features:
+  search: true
+  tree: true
+  sourceEdit: true
+
+tags:
+  - reader
+  - vscode
+  - yaml
