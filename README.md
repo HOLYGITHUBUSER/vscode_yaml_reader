@@ -1,69 +1,59 @@
 # YAML Reader
 
-![YAML Reader 图标](00-config-工程配置/icon-扩展图标.png)
+一个面向 VS Code / Cursor 的 YAML 阅读器与编辑工作台。它在编辑器主区域打开独立页面，不占用侧边栏。
 
-VS Code / Cursor 的 YAML 阅读器：**左结构树 + 右可编辑源码**（可拖分隔条）。
+## 当前状态
+
+首个可安装版本为 `0.1.0`，已完成核心功能、自动化测试和大文件性能验证。
 
 ## 功能
 
-- 默认**分栏**：左侧结构、右侧源码可编辑并写回
-- 也可切「仅树形 / 仅源码」
-- 点树节点定位源码；搜索 / 展开折叠 / 类型着色
-- **复制路径 / 值 / JSON**（节点悬停）
-- **格式化 YAML**、源码**换行**、记忆分栏宽度
-- ⌘/Ctrl+F 聚焦搜索；Ctrl/⌘+Shift+L 格式化
-- 解析：`eemeli/yaml`；自动关联 `*.yaml` / `*.yml`
+- 在同一编辑器标签页左右分栏展示结构树与源码，不使用侧边栏。
+- 默认展开一级，大型 YAML 首次打开只展示文档骨架。
+- 通过缩进、连接线、图标和颜色共同表达层级与数据类型。
+- 支持键、值、类型、路径搜索，以及 `key:`、`value:`、`type:`、`path:` 过滤。
+- 支持面包屑、键盘导航、源码定位、路径复制和值/子树复制。
+- 支持多文档、锚点、别名、标签、注释与错误定位。
+- 使用虚拟滚动稳定阅读 5,000～20,000+ 节点的 YAML。
+- `YAML Reader` 全程只读，不重排、不格式化、不自动保存源文件。
+- `YAML Workbench` 由用户主动打开，提供左树右源码编辑、格式化和显式保存；保存前校验 YAML，遇到外部变更拒绝覆盖。
+- 完全本地运行，不联网、不上传文件、不收集遥测。
 
-## 快速开始
+## 使用
+
+打开 `.yaml` 或 `.yml` 文件后，可通过以下任一方式进入：
+
+- 编辑器标题栏的 `Open YAML Reader` 按钮；
+- 文件或编辑器右键菜单中的 `Open YAML Reader`；
+- 命令面板中的 `YAML Reader: Open Read-only View`；
+- 命令面板中的 `YAML Reader: Open Editing Workbench`；
+- `Reopen Editor With...` 中选择 `YAML Reader`。
+
+默认不会替换普通 YAML 文本编辑器。
+
+## 设置
+
+- `yamlReader.defaultExpandDepth`：初始展开深度，默认 `1`。
+- `yamlReader.rowHeight`：虚拟树行高，默认 `32`。
+- `yamlReader.rememberExpansion`：标签页存活期间记住展开和选中状态。
+- `yamlReader.searchDebounceMs`：搜索防抖时间。
+
+## 本地开发
+
+要求 Node.js 24 或更高版本。
 
 ```bash
-git clone https://github.com/HOLYGITHUBUSER/vscode_yaml_reader.git
-cd vscode_yaml_reader
 npm install
-npm test
-python3 03-script-构建脚本/build-编译打包.py
-cursor --install-extension 07-artifacts-安装包/yaml-reader-*.vsix --force
+npm run typecheck
+npm run test:coverage
+npm run test:integration
+npm run package
 ```
 
-## 试用样例
+设计说明位于 `06-docs-项目文档/01_design-设计.md`。
 
-| 样例 | 用途 |
-| --- | --- |
-| [`04-samples-试用样例/demo-应用配置.yaml`](04-samples-试用样例/demo-应用配置.yaml) | 日常验收 |
-| [`04-samples-试用样例/multi-多文档.yaml`](04-samples-试用样例/multi-多文档.yaml) | `---` 多文档 |
+## 标识
 
-## 文档
-
-| 文档 | 内容 |
-| --- | --- |
-| [`01-product-产品设计.md`](06-docs-项目文档/01-product-产品设计.md) | 定位与决策 |
-| [`02-handbook-工程手册.md`](06-docs-项目文档/02-handbook-工程手册.md) | 目录、模块、测试、打包 |
-
-## 目录结构（对齐 CSV Reader，根目录极简）
-
-```text
-vscode_yaml_reader/
-├─ 00-config-工程配置/       图标 / tsconfig / 许可证
-├─ 01-extension-扩展逻辑/    ★ 扩展宿主 + 单测
-├─ 02-webview-阅读界面/      ★ 分栏 UI
-├─ 03-script-构建脚本/       打包
-├─ 04-samples-试用样例/      手测 YAML
-├─ 05-e2e-浏览器测试/        Playwright
-├─ 06-docs-项目文档/         文档
-├─ 07-artifacts-安装包/      VSIX 产物
-├─ package.json
-└─ README.md
-```
-
-## 配置
-
-| 设置 | 默认 | 说明 |
-|------|------|------|
-| `yaml-reader.defaultView` | `split` | split / tree / source |
-| `yaml-reader.autoOpenReader` | `true` | 自动用阅读器打开 |
-| `yaml-reader.maxNodes` | `5000` | 树节点上限 |
-| `yaml-reader.defaultExpandDepth` | `2` | 默认展开深度 |
-
-## 许可证
-
-MIT（见 `00-config-工程配置/license-许可证.txt`）
+- 产品名：`YAML Reader`
+- 扩展 ID：`yaml-reader.yaml-reader`
+- 许可证：MIT

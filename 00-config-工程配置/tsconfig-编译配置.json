@@ -1,17 +1,49 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES2020",
-    "outDir": "../out",
-    "rootDir": "../01-extension-扩展逻辑",
-    "lib": ["ES2020", "DOM"],
-    "sourceMap": true,
-    "strict": true,
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable",
+      "WebWorker"
+    ],
+    "allowJs": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "types": [
+      "node",
+      "vscode",
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ]
   },
-  "include": ["../01-extension-扩展逻辑/**/*.ts"],
-  "exclude": ["../node_modules", "../out", "../05-e2e-浏览器测试"]
+  "include": [
+    "../01-extension-扩展逻辑/**/*.ts",
+    "../02-core-核心能力/**/*.ts",
+    "../03-webview-阅读界面/**/*.ts",
+    "../03-webview-阅读界面/**/*.tsx",
+    "../05-tests-测试/**/*.ts",
+    "../05-tests-测试/**/*.tsx",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "../07-artifacts-安装包",
+    "../node_modules"
+  ]
 }
