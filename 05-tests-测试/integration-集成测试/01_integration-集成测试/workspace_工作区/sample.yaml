@@ -1,0 +1,59 @@
+# Synthetic fixture only; no business data.
+# Exercises nested maps, lists, anchors, aliases, tags, Chinese keys and multi-documents.
+defaults: &service_defaults
+  owner: 平台工程
+  enabled: true
+  retries: 3
+  timeoutMs: 1500
+  labels: [reader, demo, "中文标签"]
+  resources:
+    cpu: "500m"
+    memory: 256Mi
+
+platform:
+  displayName: "YAML Reader 演示"
+  environments:
+    development:
+      <<: *service_defaults
+      endpoint: https://dev.example.invalid/api
+      features:
+        treeSearch: true
+        sourcePane: true
+        experimental: null
+    production:
+      <<: *service_defaults
+      enabled: false
+      endpoint: https://prod.example.invalid/api
+      rollout:
+        strategy: canary
+        steps:
+          - percentage: 10
+            pause: 5m
+          - percentage: 50
+            pause: 15m
+          - percentage: 100
+            pause: 0m
+
+services:
+  - name: gateway
+    <<: *service_defaults
+    ports: [8080, 8443]
+    routes:
+      - path: /health
+        methods: [GET]
+      - path: /v1/items
+        methods: [GET, POST]
+  - name: worker
+    <<: *service_defaults
+    schedule: "*/5 * * * *"
+    values:
+      threshold: 0.85
+      notes: |
+        多行文本用于检查
+        源码区域与树结构是否同步。
+---
+document: second
+metadata:
+  generatedAt: 2026-08-08T22:00:00+08:00
+  emptyMap: {}
+  emptyList: []

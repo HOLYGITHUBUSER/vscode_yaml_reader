@@ -1,8 +1,0 @@
----
-doc: first
-value: 1
----
-doc: second
-items:
-  - a
-  - b

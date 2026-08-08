@@ -1,14 +1,8 @@
-out/
 node_modules/
+07-artifacts-安装包/*
+!07-artifacts-安装包/.gitkeep
+coverage_覆盖率/
 .vscode-test/
-.DS_Store
+*.vsix
 *.log
-.pack-exclude-test-unit/
-
-05-e2e-浏览器测试/test-results/
-playwright-report/
-04-samples-试用样例/screenshots-截图/
-
-# VSIX 产物本地生成，不进 git
-/*.vsix
-07-artifacts-安装包/*.vsix
+.DS_Store

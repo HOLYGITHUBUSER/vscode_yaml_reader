@@ -1,0 +1,7 @@
+{
+  "extends": "./00-config-工程配置/tsconfig-编译配置.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  }
+}
