@@ -91,9 +91,6 @@
     opts = opts || {};
     document.body.setAttribute('data-mode', mode);
 
-    // 源码模式仍显示工具条（格式化/换行），搜索区用 CSS 弱化
-    if (toolbarEl) toolbarEl.style.display = '';
-
     tabButtons.forEach(function (btn) {
       var m = btn.getAttribute('data-mode');
       var active = m === mode;

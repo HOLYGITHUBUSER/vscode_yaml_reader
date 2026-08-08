@@ -244,34 +244,42 @@ export class PreviewProvider implements vscode.CustomTextEditorProvider {
       <button type="button" class="yaml-tab" role="tab" data-mode="tree" title="仅结构树">树形</button>
       <button type="button" class="yaml-tab" role="tab" data-mode="source" title="仅源码">源码</button>
     </nav>
-    <div class="yaml-toolbar" id="yaml-toolbar">
-      <div class="yaml-search-wrap">
-        <span class="yaml-search-icon" aria-hidden="true">⌕</span>
-        <input type="search" id="yaml-search" class="yaml-search" placeholder="搜索 key / value / path… (⌘/Ctrl+F)" aria-label="搜索" />
-        <button type="button" id="yaml-search-clear" class="yaml-search-clear" title="清除搜索" hidden aria-label="清除">×</button>
-      </div>
-      <button type="button" id="yaml-expand-all" class="yaml-btn" title="展开全部">展开</button>
-      <button type="button" id="yaml-collapse-all" class="yaml-btn" title="折叠全部">折叠</button>
-      <button type="button" id="yaml-format" class="yaml-btn" title="格式化 YAML">格式化</button>
-      <button type="button" id="yaml-wrap" class="yaml-btn" title="源码自动换行">换行</button>
-      <span id="yaml-meta" class="yaml-meta" aria-live="polite"></span>
-    </div>
   </header>
   <main class="yaml-main" id="yaml-main">
     <section class="yaml-pane yaml-pane-tree" id="yaml-pane-tree" aria-label="结构">
-      <div class="yaml-pane-title">结构</div>
+      <div class="yaml-pane-head">
+        <div class="yaml-pane-title-row">
+          <span class="yaml-pane-title">结构</span>
+          <span id="yaml-meta" class="yaml-meta" aria-live="polite"></span>
+          <div class="yaml-pane-actions">
+            <button type="button" id="yaml-expand-all" class="yaml-btn yaml-btn-sm" title="展开全部">展开</button>
+            <button type="button" id="yaml-collapse-all" class="yaml-btn yaml-btn-sm" title="折叠全部">折叠</button>
+          </div>
+        </div>
+        <div class="yaml-search-wrap" id="yaml-toolbar">
+          <span class="yaml-search-icon" aria-hidden="true">⌕</span>
+          <input type="search" id="yaml-search" class="yaml-search" placeholder="搜索… (⌘/Ctrl+F)" aria-label="搜索" />
+          <button type="button" id="yaml-search-clear" class="yaml-search-clear" title="清除搜索" hidden aria-label="清除">×</button>
+        </div>
+      </div>
       <div id="yaml-error" class="yaml-error" hidden role="alert"></div>
       <div id="yaml-breadcrumb" class="yaml-breadcrumb" aria-live="polite"></div>
       <div id="yaml-tree" class="yaml-tree" role="tree" aria-label="YAML 树"></div>
     </section>
     <div class="yaml-splitter" id="yaml-splitter" role="separator" aria-orientation="vertical" aria-label="拖动调整宽度" tabindex="0"></div>
     <section class="yaml-pane yaml-pane-source" id="yaml-pane-source" aria-label="源码">
-      <div class="yaml-pane-title">源码 <span class="yaml-pane-sub">可编辑</span></div>
+      <div class="yaml-pane-title-row yaml-source-head">
+        <span class="yaml-pane-title">源码 <span class="yaml-pane-sub">可编辑</span></span>
+        <div class="yaml-pane-actions">
+          <button type="button" id="yaml-format" class="yaml-btn yaml-btn-sm" title="格式化 YAML">格式化</button>
+          <button type="button" id="yaml-wrap" class="yaml-btn yaml-btn-sm" title="源码自动换行">换行</button>
+        </div>
+      </div>
       <textarea id="yaml-source" class="yaml-source" spellcheck="false" wrap="off" aria-label="YAML 源码"></textarea>
     </section>
   </main>
   <footer class="yaml-footer">
-    <span id="yaml-hint">点树定位源码 · 悬停复制路径/值/JSON · ⌘/Ctrl+F 搜索 · 格式化 · 拖分隔条</span>
+    <span id="yaml-hint">左栏：搜索/展开/折叠 · 右栏：格式化/换行 · 点树定位源码 · 悬停复制</span>
   </footer>
   <script src="${mainJsUri}"></script>
 </body>
