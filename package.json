@@ -31,9 +31,12 @@
     "workspace"
   ],
   "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:yaml",
     "onCommand:yamlReader.openPreview",
     "onCommand:yamlReader.openWorkbench",
-    "onCustomEditor:yamlReader.preview"
+    "onCustomEditor:yamlReader.preview",
+    "onCustomEditor:yamlReader.workbench"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -62,18 +65,21 @@
     ],
     "customEditors": [
       {
-        "viewType": "yamlReader.preview",
+        "viewType": "yamlReader.workbench",
         "displayName": "YAML Reader",
         "selector": [
+          {
+            "filenamePattern": "*.yaml"
+          },
           {
             "filenamePattern": "*.yml"
           }
         ],
-        "priority": "option"
+        "priority": "default"
       },
       {
-        "viewType": "yamlReader.workbench",
-        "displayName": "YAML Workbench",
+        "viewType": "yamlReader.preview",
+        "displayName": "YAML Reader (只读)",
         "selector": [
           {
             "filenamePattern": "*.yaml"
