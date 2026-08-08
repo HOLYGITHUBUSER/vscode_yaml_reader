@@ -15,6 +15,15 @@ import {
 } from 'yaml';
 import type { ParseOptions, ParseResult, YamlNode, YamlValueType } from './yamlModel';
 
+export type {
+  ParseErr,
+  ParseOk,
+  ParseOptions,
+  ParseResult,
+  YamlNode,
+  YamlValueType,
+} from './yamlModel';
+
 let idSeq = 0;
 
 export function resetIdSeqForTests(): void {
@@ -363,4 +372,34 @@ export function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/** 展示文案（单测 / 状态） */
+export function nodeLabel(n: YamlNode): string {
+  if (n.type === 'error') return n.key;
+  return n.key || '(root)';
+}
+
+export function nodeDescription(n: YamlNode): string {
+  if (n.type === 'error') {
+    const v = n.valueText || '';
+    return v.length > 60 ? v.slice(0, 57) + '…' : v;
+  }
+  if (n.type === 'object') return `{${n.childCount}}${n.truncated ? '…' : ''}`;
+  if (n.type === 'array') return `[${n.childCount}]${n.truncated ? '…' : ''}`;
+  if (n.type === 'document') return 'document';
+  if (n.type === 'string') {
+    const shown = n.valueText.length > 48 ? n.valueText.slice(0, 45) + '…' : n.valueText;
+    return `"${shown}"`;
+  }
+  return n.valueText;
+}
+
+export function nodeTooltip(n: YamlNode): string {
+  const lines = [n.path ? `路径: ${n.path}` : '（根）', `类型: ${n.type}`];
+  if (n.valueText && n.type !== 'object' && n.type !== 'array') {
+    lines.push(`值: ${n.valueText}`);
+  }
+  if (n.truncated) lines.push('（子节点已截断）');
+  return lines.join('\n');
 }

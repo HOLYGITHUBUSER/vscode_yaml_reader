@@ -147,7 +147,12 @@ def main() -> None:
         if STAMPED_RE.match(oldp.name):
             oldp.unlink(missing_ok=True)
 
+    # 固定 latest 名，方便 npm run install:cursor
+    latest = OUT_DIR / f"{name}-latest.vsix"
+    latest.write_bytes(stamped_path.read_bytes())
+
     print(f"OK {stamped_path}")
+    print(f"OK {latest}")
 
 
 if __name__ == "__main__":

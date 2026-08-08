@@ -1,5 +1,5 @@
+/** 布局模式（无 vscode 依赖，便于单测） */
 export enum ViewMode {
-  /** 左树右源码（默认，推荐） */
   Split = 'split',
   Source = 'source',
   Tree = 'tree',
@@ -14,7 +14,6 @@ export function parseViewMode(raw: string | undefined | null, fallback: ViewMode
   return fallback;
 }
 
-/** 分栏 → 源码 → 树形 → 分栏 */
 export function toggleView(mode: ViewMode): ViewMode {
   if (mode === ViewMode.Split) return ViewMode.Source;
   if (mode === ViewMode.Source) return ViewMode.Tree;

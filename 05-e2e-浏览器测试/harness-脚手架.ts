@@ -23,11 +23,11 @@ function parseForHarness(source: string, maxNodes = 5000) {
 
 export function writeHarnessHtml(cfg: HarnessConfig): { url: string; dir: string } {
   const mainJs = fs.readFileSync(
-    path.join(REPO_ROOT, '02-webview-预览界面', 'webview-main.js'),
+    path.join(REPO_ROOT, '02-webview-阅读界面', 'webview-main.js'),
     'utf8'
   );
   const stylesCss = fs.readFileSync(
-    path.join(REPO_ROOT, '02-webview-预览界面', 'webview-styles.css'),
+    path.join(REPO_ROOT, '02-webview-阅读界面', 'webview-styles.css'),
     'utf8'
   );
   const parse = parseForHarness(cfg.yamlSource, cfg.maxNodes ?? 5000);

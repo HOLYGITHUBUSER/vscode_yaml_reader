@@ -38,7 +38,7 @@ export class PreviewProvider implements vscode.CustomTextEditorProvider {
   ): Promise<void> {
     const docDir = vscode.Uri.file(path.dirname(document.uri.fsPath));
     const roots = [
-      vscode.Uri.joinPath(this.context.extensionUri, '02-webview-预览界面'),
+      vscode.Uri.joinPath(this.context.extensionUri, '02-webview-阅读界面'),
       docDir,
     ];
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
@@ -201,7 +201,7 @@ export class PreviewProvider implements vscode.CustomTextEditorProvider {
   }
 
   private getHtml(webview: vscode.Webview, initialMode: EditorMode): string {
-    const base = vscode.Uri.joinPath(this.context.extensionUri, '02-webview-预览界面');
+    const base = vscode.Uri.joinPath(this.context.extensionUri, '02-webview-阅读界面');
     const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'webview-styles.css'));
     const mainJsUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'webview-main.js'));
     const csp = webview.cspSource;
