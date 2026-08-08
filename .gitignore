@@ -1,16 +1,16 @@
-out/
-node_modules/
-.vscode-test/
+
 .DS_Store
-*.log
 .pack-exclude-test-unit/
-
-05-e2e-浏览器测试/test-results/
-playwright-report/
-
-# VSIX 时间戳包不进 git；latest 可本地保留
+.vscode-test/
+*.log
 /*.vsix
-07-artifacts-安装包/*-20*.vsix
-07-artifacts-安装包/*-v*-20*.vsix
-
+# VSIX 时间戳包不进 git；latest 可本地保留
 04-samples-试用样例/screenshots-截图/
+05-e2e-浏览器测试/test-results/
+07-artifacts-安装包/*-20*.vsix
+07-artifacts-安装包/*-latest.vsix
+07-artifacts-安装包/*-v*-20*.vsix
+07-artifacts-安装包/yaml-reader-latest.vsix
+node_modules/
+out/
+playwright-report/
