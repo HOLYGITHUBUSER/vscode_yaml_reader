@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyTreeScalarEdit,
   allExpandableIds,
   createNodeIndex,
   expandedIdsForDepth,
@@ -423,6 +424,16 @@ describe("parseYamlDocument", () => {
     );
   });
 
+  it("keeps YAML scalar key types distinct when detecting duplicate keys", () => {
+    const distinct = parseYamlDocument('1: numeric\n"1": text\n');
+    const duplicate = parseYamlDocument("1: numeric\n1.0: decimal\n");
+
+    expect(distinct.issues.some((issue) => issue.code === "DUPLICATE_KEY")).toBe(false);
+    expect(duplicate.issues).toContainEqual(
+      expect.objectContaining({ code: "DUPLICATE_KEY" })
+    );
+  });
+
   it("handles empty documents and explicit null sequence entries", () => {
     const empty = parseYamlDocument("");
     const values = parseYamlDocument("items:\n  -\n  - null\n");
@@ -460,5 +471,157 @@ describe("parseYamlDocument", () => {
     expect(result.stats.maxDepth).toBe(201);
     expect(result.stats.dataNodeCount).toBe(201);
     expect(result.nodes.at(-1)?.valuePreview).toBe('"done"');
+  });
+});
+
+describe("Workbench tree scalar editing", () => {
+  it("keeps untruncated edit metadata and replaces a mapping scalar without touching indentation or comments", () => {
+    const longValue = "x".repeat(220);
+    const source = `service:\n  \"display name\": \"${longValue}\" # keep this comment\n`;
+    const result = parseYamlDocument(source);
+    const node = result.nodes.find(
+      (candidate) => candidate.path === '$.service["display name"]'
+    );
+
+    expect(node?.valuePreview.length).toBeLessThan(220);
+    expect(node?.treeEdit).toMatchObject({
+      kind: "mapping",
+      key: "display name",
+      value: longValue
+    });
+    expect(
+      node === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, node, {
+            key: "label",
+            value: "新版名称"
+          })
+    ).toEqual({
+      ok: true,
+      text: 'service:\n  label: "新版名称" # keep this comment\n'
+    });
+  });
+
+  it("edits sequence scalar values but rejects invalid numeric input and empty mapping keys", () => {
+    const source = "retries: 3 # keep\nitems:\n  - old\n";
+    const result = parseYamlDocument(source);
+    const retries = result.nodes.find(
+      (candidate) => candidate.path === "$.retries"
+    );
+    const item = result.nodes.find(
+      (candidate) => candidate.path === "$.items[0]"
+    );
+
+    expect(
+      retries === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, retries, { key: "", value: "4" })
+    ).toEqual({ ok: false, error: "键名不能为空。" });
+    expect(
+      retries === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, retries, {
+            key: "retries",
+            value: "not-a-number"
+          })
+    ).toEqual({ ok: false, error: "数字必须是有限的十进制值。" });
+    expect(
+      item === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, item, { value: "new value" })
+    ).toEqual({
+      ok: true,
+      text: 'retries: 3 # keep\nitems:\n  - "new value"\n'
+    });
+  });
+
+  it("does not expose tree editing for aliases, tagged values, anchors or null", () => {
+    const result = parseYamlDocument(
+      [
+        "defaults: &base value",
+        "alias: *base",
+        "tagged: !custom value",
+        "missing: null"
+      ].join("\n")
+    );
+
+    expect(result.nodes.find((node) => node.path === "$.defaults")?.treeEdit).toBeUndefined();
+    expect(result.nodes.find((node) => node.path === "$.alias")?.treeEdit).toBeUndefined();
+    expect(result.nodes.find((node) => node.path === "$.tagged")?.treeEdit).toBeUndefined();
+    expect(result.nodes.find((node) => node.path === "$.missing")?.treeEdit).toBeUndefined();
+  });
+
+  it("does not expose tree editing for non-string mapping keys", () => {
+    const result = parseYamlDocument("true: text\n42: text\nnull: text\n");
+
+    expect(result.nodes.find((node) => node.key === "true")?.treeEdit).toBeUndefined();
+    expect(result.nodes.find((node) => node.key === "42")?.treeEdit).toBeUndefined();
+    expect(result.nodes.find((node) => node.key === "null")?.treeEdit).toBeUndefined();
+  });
+
+  it("preserves comment-only mapping layout and explicit-key syntax while editing tokens", () => {
+    const source = [
+      "name: # document this value",
+      "  old",
+      "? complex",
+      ": value",
+      ""
+    ].join("\n");
+    const result = parseYamlDocument(source);
+    const name = result.nodes.find((node) => node.key === "name");
+    const complex = result.nodes.find((node) => node.key === "complex");
+
+    expect(
+      name === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, name, { key: "name", value: "new" })
+    ).toEqual({
+      ok: true,
+      text: 'name: # document this value\n  "new"\n? complex\n: value\n'
+    });
+    expect(
+      complex === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, complex, {
+            key: "renamed",
+            value: "next"
+          })
+    ).toEqual({
+      ok: true,
+      text: 'name: # document this value\n  old\n? renamed\n: "next"\n'
+    });
+  });
+
+  it("preserves the original numeric token for large integers on a no-op apply", () => {
+    const source = "total: 9007199254740993\n";
+    const node = parseYamlDocument(source).nodes.find(
+      (candidate) => candidate.path === "$.total"
+    );
+
+    expect(node?.treeEdit).toMatchObject({ value: "9007199254740993" });
+    expect(
+      node === undefined || node.treeEdit === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, node, {
+            ...(node.treeEdit.kind === "mapping" ? { key: node.treeEdit.key } : {}),
+            value: node.treeEdit.value
+          })
+    ).toEqual({ ok: true, text: source });
+  });
+
+  it("preserves significant whitespace in a mapping key while editing its value", () => {
+    const source = '" foo ": old\n';
+    const node = parseYamlDocument(source).nodes.find(
+      (candidate) => candidate.path === '$[" foo "]'
+    );
+
+    expect(
+      node === undefined
+        ? undefined
+        : applyTreeScalarEdit(source, node, {
+            key: " foo ",
+            value: "new"
+          })
+    ).toEqual({ ok: true, text: '" foo ": "new"\n' });
   });
 });

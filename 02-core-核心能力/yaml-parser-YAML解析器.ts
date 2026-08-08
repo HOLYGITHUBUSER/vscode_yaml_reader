@@ -13,6 +13,7 @@ import type {
   ParseIssue,
   SourcePosition,
   SourceRange,
+  TreeScalarEdit,
   YamlNodeType,
   YamlParseResult,
   YamlReaderNode
@@ -27,6 +28,13 @@ interface VisitOptions {
   readonly depth: number;
   readonly startOffset?: number;
   readonly leadingComment?: string;
+  readonly treeEditContext?: TreeEditContext;
+}
+
+interface TreeEditContext {
+  readonly kind: "mapping" | "sequence" | "document";
+  readonly key?: string;
+  readonly keyRange?: SourceRange;
 }
 
 interface MutableParseState {
@@ -72,6 +80,10 @@ export function parseYamlDocument(text: string): YamlParseResult {
       // yaml's built-in duplicate-key check is quadratic for very large maps.
       // We perform an equivalent linear check while building the flat model.
       uniqueKeys: false,
+      // Keep integer source values exact while the tree is being built. The
+      // Webview only receives strings, so a BigInt never crosses the worker
+      // boundary, but it prevents an unsafe JS Number from changing YAML.
+      intAsBigInt: true,
       version: "1.2"
     });
 
@@ -191,14 +203,24 @@ function appendMapChildren(
   options: VisitOptions
 ): void {
   const parent = getNodeById(state, options.parentId);
-  const seenKeys = new Set<string>();
+  const seenScalarKeys = new Set<unknown>();
 
   pairs.forEach((pair) => {
     const key = formatKey(pair.key);
     const keyNode = isYamlNode(pair.key) ? pair.key : null;
+    const editableKey =
+      isScalar(pair.key) &&
+      typeof pair.key.value === "string" &&
+      pair.key.anchor === undefined &&
+      pair.key.tag === undefined
+        ? pair.key.value
+        : undefined;
     const keyStart = keyNode?.range?.[0];
+    const editableKeyRange = keyNode === null
+      ? undefined
+      : createTreeEditRange(state.lineStarts, keyNode, state.text.length);
     const value = isYamlNode(pair.value) ? pair.value : null;
-    if (seenKeys.has(key)) {
+    if (hasDuplicateScalarKey(seenScalarKeys, keyNode)) {
       state.issues.push({
         severity: "error",
         code: "DUPLICATE_KEY",
@@ -209,8 +231,6 @@ function appendMapChildren(
           state.text.length
         )
       });
-    } else {
-      seenKeys.add(key);
     }
     const leadingComment = joinComments(
       keyNode?.commentBefore,
@@ -222,7 +242,16 @@ function appendMapChildren(
       path: appendMapPath(options.path, key),
       depth: options.depth,
       ...(keyStart === undefined ? {} : { startOffset: keyStart }),
-      ...(leadingComment.length === 0 ? {} : { leadingComment })
+      ...(leadingComment.length === 0 ? {} : { leadingComment }),
+      ...(editableKey === undefined || editableKeyRange === undefined
+        ? {}
+        : {
+            treeEditContext: {
+              kind: "mapping" as const,
+              key: editableKey,
+              keyRange: editableKeyRange
+            }
+          })
     });
     parent.childIds.push(childId);
   });
@@ -240,7 +269,8 @@ function appendSequenceChildren(
       parentId: options.parentId,
       key: `[${index}]`,
       path: `${options.path}[${index}]`,
-      depth: options.depth
+      depth: options.depth,
+      treeEditContext: { kind: "sequence" }
     });
     parent.childIds.push(childId);
   });
@@ -258,6 +288,12 @@ function visitNode(
     state.text.length,
     options.startOffset
   );
+  const treeEdit = createTreeEdit(
+    node,
+    options.treeEditContext,
+    createTreeEditRange(state.lineStarts, node, state.text.length),
+    state.text
+  );
   const readerNode = createNode(state, {
     id: nextNodeId(state),
     parentId: options.parentId,
@@ -271,7 +307,8 @@ function visitNode(
     itemCount: getCollectionSize(node),
     tag: node?.tag ?? "",
     anchor: getAnchor(node),
-    comment: joinComments(options.leadingComment, getNodeComment(node))
+    comment: joinComments(options.leadingComment, getNodeComment(node)),
+    ...(treeEdit === undefined ? {} : { treeEdit })
   });
 
   if (isMap(node)) {
@@ -291,6 +328,86 @@ function visitNode(
   }
 
   return readerNode.id;
+}
+
+function createTreeEdit(
+  node: Node | null,
+  context: TreeEditContext | undefined,
+  valueRange: SourceRange,
+  source: string
+): TreeScalarEdit | undefined {
+  if (
+    context === undefined ||
+    node === null ||
+    !isScalar(node) ||
+    node.anchor !== undefined ||
+    node.tag !== undefined
+  ) {
+    return undefined;
+  }
+  if (rangeContainsLineBreak(source, valueRange)) {
+    return undefined;
+  }
+  const value = node.value;
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "bigint" &&
+    typeof value !== "boolean"
+  ) {
+    return undefined;
+  }
+  const rawValue = source.slice(valueRange.start.offset, valueRange.end.offset);
+  if (typeof value === "number" || typeof value === "bigint") {
+    if (!isEditableDecimalNumber(rawValue)) return undefined;
+  }
+  if (context.kind === "mapping") {
+    if (context.key === undefined || context.keyRange === undefined) return undefined;
+    if (rangeContainsLineBreak(source, context.keyRange)) return undefined;
+    return {
+      kind: "mapping",
+      key: context.key,
+      value: typeof value === "number" || typeof value === "bigint" ? rawValue : String(value),
+      keyRange: context.keyRange,
+      valueRange
+    };
+  }
+  return {
+    kind: context.kind,
+    value: typeof value === "number" || typeof value === "bigint" ? rawValue : String(value),
+    valueRange
+  };
+}
+
+function hasDuplicateScalarKey(
+  seenKeys: Set<unknown>,
+  key: Node | null
+): boolean {
+  if (!isScalar(key)) return false;
+  // yaml's native comparator uses ===, for which NaN never equals itself.
+  if (typeof key.value === "number" && Number.isNaN(key.value)) return false;
+  const identity = scalarKeyIdentity(key.value);
+  if (seenKeys.has(identity)) return true;
+  seenKeys.add(identity);
+  return false;
+}
+
+function scalarKeyIdentity(value: unknown): unknown {
+  // `intAsBigInt` protects large document values. Normalize only safe integral
+  // Numbers so `1` and `1.0` retain the same duplicate-key behavior without
+  // conflating a rounded unsafe Number with an exact BigInt.
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    return BigInt(value);
+  }
+  return value;
+}
+
+function isEditableDecimalNumber(rawValue: string): boolean {
+  return (
+    /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$/u.test(rawValue) &&
+    Number.isFinite(Number(rawValue))
+  );
 }
 
 function createNode(
@@ -397,6 +514,20 @@ function createNodeRange(
   const start = startOffset ?? nodeStart;
   const end = node?.range?.[2] ?? node?.range?.[1] ?? start;
   return createRange(lineStarts, start, end, sourceLength);
+}
+
+function createTreeEditRange(
+  lineStarts: readonly number[],
+  node: Node | null,
+  sourceLength: number
+): SourceRange {
+  const start = node?.range?.[0] ?? 0;
+  const end = node?.range?.[1] ?? node?.range?.[0] ?? start;
+  return createRange(lineStarts, start, end, sourceLength);
+}
+
+function rangeContainsLineBreak(source: string, range: SourceRange): boolean {
+  return /[\r\n]/u.test(source.slice(range.start.offset, range.end.offset));
 }
 
 function convertIssue(

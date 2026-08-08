@@ -20,6 +20,29 @@ export interface SourceRange {
   readonly end: SourcePosition;
 }
 
+export type TreeScalarEdit =
+  | {
+      readonly kind: "mapping";
+      readonly key: string;
+      readonly value: string;
+      readonly keyRange: SourceRange;
+      readonly valueRange: SourceRange;
+    }
+  | {
+      readonly kind: "sequence" | "document";
+      readonly value: string;
+      readonly valueRange: SourceRange;
+    };
+
+export interface TreeScalarEditInput {
+  readonly key?: string;
+  readonly value: string;
+}
+
+export type TreeScalarEditResult =
+  | { readonly ok: true; readonly text: string }
+  | { readonly ok: false; readonly error: string };
+
 export interface YamlReaderNode {
   readonly id: string;
   readonly parentId: string | null;
@@ -34,6 +57,7 @@ export interface YamlReaderNode {
   readonly tag: string;
   readonly anchor: string;
   readonly comment: string;
+  readonly treeEdit?: TreeScalarEdit;
 }
 
 export type ParseIssueSeverity = "error" | "warning";
@@ -173,7 +197,7 @@ export function isExtensionToWebviewMessage(
 export function isReaderSettings(value: unknown): value is ReaderSettings {
   return isRecord(value) &&
     isFiniteNumber(value.defaultExpandDepth) && value.defaultExpandDepth >= 0 && value.defaultExpandDepth <= 6 &&
-    isFiniteNumber(value.rowHeight) && value.rowHeight >= 26 && value.rowHeight <= 44 &&
+    isFiniteNumber(value.rowHeight) && value.rowHeight >= 18 && value.rowHeight <= 44 &&
     typeof value.rememberExpansion === "boolean" &&
     isFiniteNumber(value.searchDebounceMs) && value.searchDebounceMs >= 0 && value.searchDebounceMs <= 1000;
 }
@@ -277,6 +301,48 @@ export function findAdjacentSelection(visibleIds: readonly string[], currentId: 
   return visibleIds[Math.min(visibleIds.length - 1, Math.max(0, currentIndex + delta))] ?? null;
 }
 
+export function applyTreeScalarEdit(
+  source: string,
+  node: YamlReaderNode,
+  input: TreeScalarEditInput
+): TreeScalarEditResult {
+  const descriptor = node.treeEdit;
+  if (descriptor === undefined) {
+    return { ok: false, error: "该节点需在右侧源码中编辑。" };
+  }
+  const scalar = serializeTreeScalar(node.type, input.value);
+  if (typeof scalar !== "string") {
+    return scalar;
+  }
+
+  const replacements: Array<{ readonly range: SourceRange; readonly text: string }> = [
+    { range: descriptor.valueRange, text: scalar }
+  ];
+  if (descriptor.kind === "mapping") {
+    const key = input.key ?? descriptor.key;
+    if (key.trim().length === 0) {
+      return { ok: false, error: "键名不能为空。" };
+    }
+    replacements.push({
+      range: descriptor.keyRange,
+      text: serializeMappingKey(key)
+    });
+  }
+  const validated = validateSourceReplacements(source, replacements);
+  if (!validated.ok) return validated;
+  return {
+    ok: true,
+    text: replacements
+      .slice()
+      .sort((left, right) => right.range.start.offset - left.range.start.offset)
+      .reduce(
+        (text, replacement) =>
+          `${text.slice(0, replacement.range.start.offset)}${replacement.text}${text.slice(replacement.range.end.offset)}`,
+        source
+      )
+  };
+}
+
 function isRecord(value: unknown): value is UnknownRecord { return typeof value === "object" && value !== null; }
 function isFiniteNumber(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value); }
 function isSourceRange(value: unknown): value is SourceRange {
@@ -309,4 +375,64 @@ function matches(node: YamlReaderNode, token: SearchToken): boolean {
     case "path": return path.includes(token.value);
     case "any": return [key, value, type, path].some((candidate) => candidate.includes(token.value));
   }
+}
+
+function serializeTreeScalar(
+  type: YamlNodeType,
+  rawValue: string
+): string | Extract<TreeScalarEditResult, { readonly ok: false }> {
+  switch (type) {
+    case "string":
+      return JSON.stringify(rawValue);
+    case "number": {
+      const value = rawValue.trim();
+      if (
+        !/^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$/u.test(value) ||
+        !Number.isFinite(Number(value))
+      ) {
+        return { ok: false, error: "数字必须是有限的十进制值。" };
+      }
+      return value;
+    }
+    case "boolean": {
+      const value = rawValue.trim().toLowerCase();
+      if (value !== "true" && value !== "false") {
+        return { ok: false, error: "布尔值只能是 true 或 false。" };
+      }
+      return value;
+    }
+    default:
+      return { ok: false, error: "该节点需在右侧源码中编辑。" };
+  }
+}
+
+function serializeMappingKey(key: string): string {
+  const plain = key === key.trim() && /^[\p{L}_$][\p{L}\p{N}_$-]*$/u.test(key);
+  const ambiguous = /^(?:null|true|false|yes|no|on|off|~)$/iu.test(key);
+  return plain && !ambiguous ? key : JSON.stringify(key);
+}
+
+function validateSourceReplacements(
+  source: string,
+  replacements: readonly { readonly range: SourceRange; readonly text: string }[]
+): Extract<TreeScalarEditResult, { readonly ok: false }> | { readonly ok: true } {
+  const ranges = replacements
+    .map(({ range }) => ({ start: range.start.offset, end: range.end.offset }))
+    .sort((left, right) => left.start - right.start);
+  for (let index = 0; index < ranges.length; index += 1) {
+    const range = ranges[index];
+    const previous = ranges[index - 1];
+    if (
+      range === undefined ||
+      !Number.isInteger(range.start) ||
+      !Number.isInteger(range.end) ||
+      range.start < 0 ||
+      range.end < range.start ||
+      range.end > source.length ||
+      (previous !== undefined && previous.end > range.start)
+    ) {
+      return { ok: false, error: "节点源码范围无效，无法安全编辑。" };
+    }
+  }
+  return { ok: true };
 }

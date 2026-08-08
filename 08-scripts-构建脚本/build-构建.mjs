@@ -1,5 +1,5 @@
 import * as esbuild from "esbuild";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { build as viteBuild } from "vite";
@@ -8,6 +8,8 @@ import { runTests } from "@vscode/test-electron";
 const projectRoot = process.cwd();
 const outputDirectory = resolve(projectRoot, "07-artifacts-安装包");
 const webviewRoot = resolve(projectRoot, "03-webview-阅读界面");
+const extensionIconSource = resolve(projectRoot, "00-config-工程配置/icon-扩展图标.png");
+const extensionIconOutput = resolve(outputDirectory, "icon-扩展图标.png");
 const operation = process.argv[2] ?? "build";
 
 if (basename(outputDirectory) !== "07-artifacts-安装包") {
@@ -39,6 +41,7 @@ async function buildExtension() {
 }
 
 async function buildWebview() {
+  // IIFE：VS Code / Cursor webview 对 type=module 兼容性差，空白页多半卡在这里
   await viteBuild({
     configFile: false,
     root: webviewRoot,
@@ -51,23 +54,24 @@ async function buildWebview() {
     },
     build: {
       outDir: resolve(outputDirectory, "webview"),
-      emptyOutDir: false,
+      emptyOutDir: true,
       target: "es2022",
-      sourcemap: true,
+      sourcemap: false,
       cssCodeSplit: false,
       lib: {
         entry: resolve(webviewRoot, "webview-main-主界面.tsx"),
-        formats: ["es"],
+        name: "YamlReaderWebview",
+        formats: ["iife"],
         fileName: () => "webview-main-主界面.js",
         cssFileName: "webview"
       },
       rollupOptions: {
         output: {
+          inlineDynamicImports: true,
           assetFileNames: (assetInfo) =>
-            assetInfo.names.some((name) => name.endsWith(".css"))
+            assetInfo.names?.some((name) => name.endsWith(".css"))
               ? "webview-style-页面样式.css"
-              : "assets/[name]-[hash][extname]",
-          chunkFileNames: "assets/[name]-[hash].js"
+              : "assets/[name]-[hash][extname]"
         }
       }
     }
@@ -76,6 +80,7 @@ async function buildWebview() {
 
 async function build() {
   await clean();
+  await copyFile(extensionIconSource, extensionIconOutput);
   await buildExtension();
   await buildWebview();
 }

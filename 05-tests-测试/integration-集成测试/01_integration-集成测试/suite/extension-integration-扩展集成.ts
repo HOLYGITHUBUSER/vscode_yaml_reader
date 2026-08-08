@@ -64,12 +64,10 @@ export async function run(): Promise<void> {
     "yamlReader",
     fixtureUri
   );
-  assert.equal(configuration.get("defaultExpandDepth"), 1);
+  assert.equal(configuration.get("defaultExpandDepth"), 3);
   assert.equal(configuration.get("rememberExpansion"), true);
 
-  await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
-
-  await vscode.commands.executeCommand(OPEN_WORKBENCH_COMMAND, fixtureUri);
+  await vscode.commands.executeCommand(OPEN_WORKBENCH_COMMAND);
   const workbenchTab = await waitForCustomEditor(WORKBENCH_VIEW_TYPE);
   assert.equal(
     workbenchTab.input instanceof vscode.TabInputCustom,

@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   Breadcrumbs,
   IssuePanel,
+  positionSourceCursor,
   SourceEditor,
+  TreeEditForm,
   TreeSearch,
   TreeRow,
   VirtualTree
@@ -93,6 +95,26 @@ describe("Workbench source editor", () => {
     expect(onCursorChange).toHaveBeenCalledWith(5);
     expect(onSave).toHaveBeenCalledTimes(2);
   });
+
+  it("moves from a tree node to a collapsed source cursor, never a replaceable range", () => {
+    const editor = document.createElement("textarea");
+    const source = "service:\n  name: reader\n  enabled: true\n";
+    editor.value = source;
+    editor.setSelectionRange(0, source.length);
+
+    const start = positionSourceCursor(
+      editor,
+      {
+        start: { offset: 11, line: 2, column: 3 },
+        end: { offset: 23, line: 2, column: 15 }
+      },
+      source
+    );
+
+    expect(start).toBe(11);
+    expect(editor.selectionStart).toBe(11);
+    expect(editor.selectionEnd).toBe(11);
+  });
 });
 
 describe("Reader source pane", () => {
@@ -101,6 +123,16 @@ describe("Reader source pane", () => {
     const source = screen.getByRole("textbox", { name: "YAML 只读源码" });
     expect(source).toHaveAttribute("readonly");
     expect(screen.getByText("只读")).toBeInTheDocument();
+  });
+
+  it("keeps Workbench source read-only while allowing an explicit save after left-tree edits", () => {
+    const onSave = vi.fn();
+    render(<SourceEditor source="name: reader" readOnly allowSave sourceDirty onInput={vi.fn()} onCursorChange={vi.fn()} onSave={onSave} onFormat={vi.fn()} />);
+
+    expect(screen.getByRole("textbox", { name: "YAML 只读源码" })).toHaveAttribute("readonly");
+    expect(screen.queryByRole("button", { name: "格式化" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存*" }));
+    expect(onSave).toHaveBeenCalledOnce();
   });
 });
 
@@ -211,6 +243,110 @@ describe("tree components", () => {
 
     rerender(<IssuePanel issues={[]} onReveal={onReveal} />);
     expect(screen.queryByText("1 个 YAML 错误")).not.toBeInTheDocument();
+  });
+});
+
+describe("Workbench tree editor", () => {
+  const editableNode = parseYamlDocument("service:\n  name: old\n").nodes.find(
+    (candidate) => candidate.path === "$.service.name"
+  );
+
+  it("opens scalar editing by double-click only when Workbench enables the tree node", () => {
+    expect(editableNode).toBeDefined();
+    const onEdit = vi.fn();
+    const { rerender } = render(
+      <TreeRow
+        node={editableNode as YamlReaderNode}
+        rowHeight={32}
+        expanded={false}
+        selected={false}
+        matched={false}
+        editable
+        onEdit={onEdit}
+        onToggle={vi.fn()}
+        onSelect={vi.fn()}
+        onReveal={vi.fn()}
+        onCopyValue={vi.fn()}
+        onCopyPath={vi.fn()}
+        onCopySource={vi.fn()}
+      />
+    );
+
+    fireEvent.dblClick(screen.getByRole("treeitem"));
+    expect(onEdit).toHaveBeenCalledWith(editableNode);
+
+    rerender(
+      <TreeRow
+        node={editableNode as YamlReaderNode}
+        rowHeight={32}
+        expanded={false}
+        selected={false}
+        matched={false}
+        onToggle={vi.fn()}
+        onSelect={vi.fn()}
+        onReveal={vi.fn()}
+        onCopyValue={vi.fn()}
+        onCopyPath={vi.fn()}
+        onCopySource={vi.fn()}
+      />
+    );
+    fireEvent.dblClick(screen.getByRole("treeitem"));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it("edits mapping key and value with explicit apply and cancel actions", () => {
+    const onKeyChange = vi.fn();
+    const onValueChange = vi.fn();
+    const onApply = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <TreeEditForm
+        node={editableNode as YamlReaderNode}
+        keyValue="name"
+        value="old"
+        error="数字必须是有限的十进制值。"
+        onKeyChange={onKeyChange}
+        onValueChange={onValueChange}
+        onApply={onApply}
+        onCancel={onCancel}
+      />
+    );
+
+    fireEvent.input(screen.getByLabelText("YAML 键名"), {
+      target: { value: "title" }
+    });
+    fireEvent.input(screen.getByLabelText("YAML 值"), {
+      target: { value: "new" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "应用修改" }));
+    fireEvent.keyDown(screen.getByLabelText("YAML 键名"), { key: "Escape" });
+
+    expect(onKeyChange).toHaveBeenCalledWith("title");
+    expect(onValueChange).toHaveBeenCalledWith("new");
+    expect(onApply).toHaveBeenCalledOnce();
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(screen.getByRole("alert")).toHaveTextContent("数字必须是有限的十进制值。");
+  });
+
+  it("locks the form while a tree edit is being parsed", () => {
+    render(
+      <TreeEditForm
+        node={editableNode as YamlReaderNode}
+        keyValue="name"
+        value="old"
+        error=""
+        busy
+        onKeyChange={vi.fn()}
+        onValueChange={vi.fn()}
+        onApply={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText("YAML 键名")).toBeDisabled();
+    expect(screen.getByLabelText("YAML 值")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "应用修改" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "取消" })).toBeDisabled();
   });
 });
 

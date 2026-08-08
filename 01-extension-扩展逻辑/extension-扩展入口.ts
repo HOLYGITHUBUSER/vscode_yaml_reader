@@ -105,7 +105,15 @@ function resolveYamlResource(resource?: vscode.Uri): vscode.Uri | undefined {
   if (resource instanceof vscode.Uri) {
     return resource;
   }
-  return vscode.window.activeTextEditor?.document.uri;
+  const activeTextEditorUri = vscode.window.activeTextEditor?.document.uri;
+  if (activeTextEditorUri !== undefined) {
+    return activeTextEditorUri;
+  }
+  const activeTabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+  if (activeTabInput instanceof vscode.TabInputCustom) {
+    return activeTabInput.uri;
+  }
+  return undefined;
 }
 
 function isYamlUri(uri: vscode.Uri): boolean {
@@ -366,11 +374,11 @@ function readReaderSettings(resource?: vscode.Uri): ReaderSettings {
   );
   return {
     defaultExpandDepth: clampInteger(
-      configuration.get<number>("defaultExpandDepth", 1),
+      configuration.get<number>("defaultExpandDepth", 3),
       0,
       6
     ),
-    rowHeight: clampInteger(configuration.get<number>("rowHeight", 32), 26, 44),
+    rowHeight: clampInteger(configuration.get<number>("rowHeight", 18), 18, 44),
     rememberExpansion: configuration.get<boolean>("rememberExpansion", true),
     searchDebounceMs: clampInteger(
       configuration.get<number>("searchDebounceMs", 120),
@@ -419,7 +427,7 @@ function createWebviewHtml(
   <body>
     <div id="app" aria-live="polite"></div>
     <noscript>YAML Reader 需要启用 JavaScript 才能显示本地阅读界面。</noscript>
-    <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
+    <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;
 }

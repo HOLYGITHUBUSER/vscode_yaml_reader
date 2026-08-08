@@ -21,4 +21,29 @@ describe("formatYaml", () => {
       text: "name: reader\n"
     });
   });
+
+  it("rejects duplicate mapping keys before a Workbench save", () => {
+    const result = formatYaml("name: first\nname: second\n");
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("does not lose precision when saving a large integer", () => {
+    expect(formatYaml("total: 9007199254740993\n")).toEqual({
+      ok: true,
+      text: "total: 9007199254740993\n"
+    });
+  });
+
+  it("keeps duplicate-key validation linear for a 20,000-entry mapping", () => {
+    const source = Array.from(
+      { length: 20_000 },
+      (_, index) => `key_${index}: value_${index}`
+    ).join("\n");
+    const startedAt = performance.now();
+    const result = formatYaml(source);
+
+    expect(result.ok).toBe(true);
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
+  }, 10_000);
 });

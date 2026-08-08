@@ -134,15 +134,15 @@
       "properties": {
         "yamlReader.defaultExpandDepth": {
           "type": "number",
-          "default": 1,
+          "default": 3,
           "minimum": 0,
           "maximum": 6,
           "description": "Initial expansion depth. 0 shows document roots only; 1 shows top-level YAML entries."
         },
         "yamlReader.rowHeight": {
           "type": "number",
-          "default": 32,
-          "minimum": 26,
+          "default": 18,
+          "minimum": 18,
           "maximum": 44,
           "description": "Tree row height in pixels."
         },

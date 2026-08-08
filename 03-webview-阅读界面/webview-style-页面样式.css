@@ -400,7 +400,7 @@ input:focus-visible,
   width: 100%;
   height: 100%;
   overflow: auto;
-  padding: 7px 0 16px;
+  padding: 0;
   scrollbar-color: color-mix(in srgb, var(--reader-muted) 35%, transparent)
     transparent;
   scrollbar-width: thin;
@@ -427,12 +427,12 @@ input:focus-visible,
   min-width: 0;
   height: var(--row-height);
   align-items: center;
-  padding: 0 10px 0 calc(8px + var(--node-indent));
+  padding: 0 2px 0 calc(2px + var(--node-indent));
   border-left: 3px solid color-mix(in srgb, var(--depth-color) 58%, transparent);
   background: var(--depth-bg);
   cursor: pointer;
   font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-  font-size: max(13px, var(--vscode-font-size, 13px));
+  font-size: 11px;
   line-height: var(--row-height);
   user-select: none;
 }
@@ -519,7 +519,7 @@ input:focus-visible,
   position: absolute;
   top: 50%;
   z-index: 2;
-  left: calc(17px + var(--connector-indent));
+  left: calc(13px + var(--connector-indent));
   width: 9px;
   border-top: 1px solid var(--reader-tree-guide);
   content: "";
@@ -542,9 +542,9 @@ input:focus-visible,
 .tree-row__toggle,
 .tree-row__toggle-spacer {
   display: inline-flex;
-  width: 20px;
-  height: 24px;
-  flex: 0 0 20px;
+  width: 14px;
+  height: 16px;
+  flex: 0 0 14px;
   align-items: center;
   justify-content: center;
   margin-right: 1px;
@@ -596,7 +596,7 @@ input:focus-visible,
 .tree-row__value {
   overflow: hidden;
   max-width: min(42vw, 680px);
-  margin-left: 10px;
+  margin-left: 3px;
   color: color-mix(in srgb, var(--depth-color) 55%, var(--reader-fg));
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -623,13 +623,13 @@ input:focus-visible,
 .tree-row__annotation,
 .tree-row__comment {
   flex: 0 0 auto;
-  margin-left: 9px;
-  padding: 1px 5px;
+  margin-left: 3px;
+  padding: 0 3px;
   border-radius: 4px;
   color: var(--reader-muted);
   font-family: var(--vscode-font-family, sans-serif);
-  font-size: 9px;
-  line-height: 17px;
+  font-size: 8px;
+  line-height: 15px;
 }
 
 .tree-row__count {
@@ -647,16 +647,85 @@ input:focus-visible,
 }
 
 .tree-row__spacer {
-  min-width: 16px;
+  min-width: 2px;
   flex: 1 1 auto;
 }
 
+.tree-edit-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: end;
+  padding: 9px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--reader-border) 72%, transparent);
+  background: color-mix(in srgb, var(--reader-panel) 88%, var(--reader-bg));
+}
+
+.tree-edit-form__title {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--reader-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-edit-form__field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--reader-muted);
+  font-size: 10px;
+}
+
+.tree-edit-form__field input {
+  min-width: 0;
+  height: 25px;
+  border: 1px solid var(--reader-border);
+  border-radius: 4px;
+  outline: none;
+  background: var(--reader-bg);
+  color: var(--reader-fg);
+  font: inherit;
+}
+
+.tree-edit-form__field input:focus {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.tree-edit-form__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.tree-edit-form__actions button {
+  height: 25px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--reader-button);
+  color: var(--reader-fg);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.tree-edit-form__actions button:hover {
+  background: var(--reader-button-hover);
+}
+
+.tree-edit-form__error {
+  grid-column: 1 / -1;
+  color: var(--vscode-errorForeground, #f14c4c);
+  font-size: 11px;
+}
+
 .tree-row__actions {
-  display: none;
+  display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 2px;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 80ms ease;
 }
 
@@ -664,20 +733,23 @@ input:focus-visible,
 .tree-row.is-selected .tree-row__actions,
 .tree-row:focus-within .tree-row__actions {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .tree-row__action,
 .tree-row__line {
-  display: none;
-  height: 22px;
-  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 3px;
   border-radius: 4px;
   background: transparent;
   color: var(--reader-muted);
   cursor: pointer;
   font-family: var(--vscode-font-family, sans-serif);
-  font-size: 9px;
-  line-height: 22px;
+  font-size: 8px;
+  line-height: 16px;
 }
 
 .tree-row__action:hover,
@@ -687,9 +759,9 @@ input:focus-visible,
 }
 
 .tree-row__line {
-  min-width: 48px;
+  min-width: 34px;
   flex: 0 0 auto;
-  margin-left: 7px;
+  margin-left: 2px;
   text-align: right;
 }
 
