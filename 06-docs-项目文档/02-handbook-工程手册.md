@@ -11,7 +11,7 @@
 | `02-webview-阅读界面/` | 分栏 Webview（main + styles） |
 | `03-script-构建脚本/` | `build-编译打包.py` |
 | `04-samples-试用样例/` | 手测 YAML |
-| `05-e2e-浏览器测试/` | Playwright harness + specs |
+| `05-e2e-浏览器测试/` | Playwright：`01-core` / `02-extras` + harness |
 | `06-docs-项目文档/` | 产品 / 手册 |
 | `07-artifacts-安装包/` | VSIX 产物（本地生成） |
 

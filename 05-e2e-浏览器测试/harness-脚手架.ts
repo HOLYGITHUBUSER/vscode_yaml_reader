@@ -96,3 +96,11 @@ export function writeHarnessHtml(cfg: HarnessConfig): { url: string; dir: string
   fs.writeFileSync(file, html, 'utf8');
   return { url: 'file://' + file, dir };
 }
+
+export function cleanupHarness(dir: string): void {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+}
