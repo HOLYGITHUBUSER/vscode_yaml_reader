@@ -2,7 +2,7 @@
   "name": "yaml-reader",
   "displayName": "YAML Reader",
   "description": "Fast YAML Reader and opt-in editing Workbench for VS Code and Cursor.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "yaml-reader",
   "license": "MIT",
   "private": true,
