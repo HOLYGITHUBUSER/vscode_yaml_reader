@@ -130,6 +130,19 @@ html, body {
   min-width: 0;
 }
 
+.yaml-search-clear {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.yaml-search-clear:hover { color: var(--fg); }
+.yaml-search-clear[hidden] { display: none !important; }
+
 .yaml-btn {
   appearance: none;
   border: 1px solid var(--border);
@@ -143,6 +156,10 @@ html, body {
   font-size: 12px;
 }
 .yaml-btn:hover { background: var(--btn-hover); }
+.yaml-btn.is-active {
+  border-color: var(--focus);
+  color: var(--tab-active-fg);
+}
 
 .yaml-meta {
   color: var(--muted);
@@ -239,8 +256,11 @@ body[data-mode='source'] .yaml-splitter {
   display: none !important;
 }
 
-body[data-mode='source'] .yaml-toolbar {
-  display: none;
+/* 仅源码时弱化搜索，保留格式化/换行 */
+body[data-mode='source'] .yaml-search-wrap,
+body[data-mode='source'] #yaml-expand-all,
+body[data-mode='source'] #yaml-collapse-all {
+  display: none !important;
 }
 
 /* Tree */
@@ -373,20 +393,36 @@ body[data-mode='source'] .yaml-toolbar {
 
 .yaml-count { color: var(--muted); font-size: 11px; flex-shrink: 0; }
 
+.yaml-copy-group {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+}
+.yaml-row:hover .yaml-copy-group { opacity: 1; }
+
 .yaml-copy {
   appearance: none;
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
-  padding: 2px 6px;
+  font-size: 10px;
+  padding: 2px 5px;
   border-radius: 4px;
   cursor: pointer;
-  opacity: 0;
   flex-shrink: 0;
 }
-.yaml-row:hover .yaml-copy { opacity: 1; }
 .yaml-copy:hover { background: var(--hover); color: var(--fg); }
+
+.yaml-row.is-match {
+  outline: 1px solid color-mix(in srgb, var(--focus) 45%, transparent);
+}
+
+.yaml-source.is-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 /* Source */
 .yaml-source {

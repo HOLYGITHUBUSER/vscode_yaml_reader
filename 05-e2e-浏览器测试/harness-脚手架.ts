@@ -52,9 +52,14 @@ export function writeHarnessHtml(cfg: HarnessConfig): { url: string; dir: string
       <button type="button" class="yaml-tab" data-mode="source">源码</button>
     </nav>
     <div class="yaml-toolbar" id="yaml-toolbar">
-      <div class="yaml-search-wrap"><input type="search" id="yaml-search" class="yaml-search" /></div>
+      <div class="yaml-search-wrap">
+        <input type="search" id="yaml-search" class="yaml-search" />
+        <button type="button" id="yaml-search-clear" class="yaml-search-clear" hidden>×</button>
+      </div>
       <button type="button" id="yaml-expand-all" class="yaml-btn">展开</button>
       <button type="button" id="yaml-collapse-all" class="yaml-btn">折叠</button>
+      <button type="button" id="yaml-format" class="yaml-btn">格式化</button>
+      <button type="button" id="yaml-wrap" class="yaml-btn">换行</button>
       <span id="yaml-meta" class="yaml-meta"></span>
     </div>
   </header>

@@ -10,6 +10,9 @@ import {
   resetIdSeqForTests,
   nodeLabel,
   nodeDescription,
+  nodeToJs,
+  nodeToJson,
+  formatYaml,
 } from '../yamlParser';
 import {
   parseViewMode,
@@ -93,5 +96,28 @@ describe('viewMode', () => {
     assert.equal(toggleView(ViewMode.Source), ViewMode.Tree);
     assert.equal(toggleView(ViewMode.Tree), ViewMode.Split);
     assert.ok(getStatusBarText(ViewMode.Split).includes('分栏'));
+  });
+});
+
+describe('copy helpers', () => {
+  it('nodeToJs / nodeToJson', () => {
+    const r = parseYamlToTree('a:\n  b: 1\n  c: true\n');
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const a = r.roots.find((n) => n.key === 'a')!;
+    const js = nodeToJs(a) as Record<string, unknown>;
+    assert.equal(js.b, 1);
+    assert.equal(js.c, true);
+    assert.ok(nodeToJson(a).includes('"b"'));
+  });
+
+  it('formatYaml pretty multi-doc', () => {
+    const raw = 'a:  1\n---\nb:   2';
+    const f = formatYaml(raw);
+    assert.equal(f.ok, true);
+    if (!f.ok) return;
+    assert.ok(f.text.includes('a: 1'));
+    assert.ok(f.text.includes('---'));
+    assert.ok(f.text.includes('b: 2'));
   });
 });

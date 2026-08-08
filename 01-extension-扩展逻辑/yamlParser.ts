@@ -403,3 +403,59 @@ export function nodeTooltip(n: YamlNode): string {
   if (n.truncated) lines.push('（子节点已截断）');
   return lines.join('\n');
 }
+
+/** 树节点还原为 JS 值（用于复制 JSON；截断树可能不完整） */
+export function nodeToJs(n: YamlNode): unknown {
+  if (n.type === 'object' || n.type === 'document') {
+    const o: Record<string, unknown> = {};
+    for (const c of n.children) {
+      o[c.key] = nodeToJs(c);
+    }
+    return o;
+  }
+  if (n.type === 'array') {
+    return n.children.map(nodeToJs);
+  }
+  if (n.type === 'null' || n.type === 'error') {
+    if (n.type === 'null') return null;
+    return n.valueText;
+  }
+  if (n.type === 'boolean') return n.valueText === 'true';
+  if (n.type === 'number') {
+    const num = Number(n.valueText);
+    return Number.isFinite(num) ? num : n.valueText;
+  }
+  return n.valueText;
+}
+
+export function nodeToJson(n: YamlNode, pretty = true): string {
+  return JSON.stringify(nodeToJs(n), null, pretty ? 2 : undefined);
+}
+
+/**
+ * 格式化 YAML（保留多文档）。失败返回 error。
+ */
+export function formatYaml(source: string): { ok: true; text: string } | { ok: false; error: string } {
+  const trimmed = source.replace(/^\uFEFF/, '');
+  if (trimmed.trim() === '') {
+    return { ok: true, text: '' };
+  }
+  try {
+    const docs = parseAllDocuments(trimmed, { prettyErrors: true, uniqueKeys: false });
+    const hardFail = docs.every((d) => d.errors.length > 0 && d.contents == null);
+    if (hardFail && docs[0]?.errors[0]) {
+      return { ok: false, error: docs[0].errors[0].message };
+    }
+    const chunks = docs
+      .filter((d) => d.contents != null || d.errors.length === 0)
+      .map((d) => d.toString({ lineWidth: 120 }).replace(/\s+$/, ''));
+    if (chunks.length === 0) {
+      return { ok: false, error: docs[0]?.errors[0]?.message || '无法格式化' };
+    }
+    let text = chunks.join('\n---\n');
+    if (!text.endsWith('\n')) text += '\n';
+    return { ok: true, text };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}

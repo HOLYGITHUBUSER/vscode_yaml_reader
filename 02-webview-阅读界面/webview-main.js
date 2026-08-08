@@ -1,6 +1,9 @@
 // @ts-check
 /**
- * YAML Reader — 默认左右分栏：左结构树 · 右可编辑源码
+ * YAML Reader — 左树右源码 + 实用增强
+ * - 复制路径 / 值 / JSON
+ * - 格式化、换行、记忆分栏宽度
+ * - ⌘/Ctrl+F 聚焦搜索
  */
 (function () {
   'use strict';
@@ -8,17 +11,28 @@
   var vscodeApi =
     typeof acquireVsCodeApi === 'function'
       ? acquireVsCodeApi()
-      : { postMessage: function () {}, setState: function () {}, getState: function () {} };
+      : {
+          postMessage: function () {},
+          setState: function () {},
+          getState: function () {
+            return undefined;
+          },
+        };
+
+  var saved = vscodeApi.getState() || {};
 
   var sourceEl = document.getElementById('yaml-source');
   var treeEl = document.getElementById('yaml-tree');
   var errorEl = document.getElementById('yaml-error');
   var searchEl = document.getElementById('yaml-search');
+  var searchClear = document.getElementById('yaml-search-clear');
   var metaEl = document.getElementById('yaml-meta');
   var toolbarEl = document.getElementById('yaml-toolbar');
   var breadcrumbEl = document.getElementById('yaml-breadcrumb');
   var expandBtn = document.getElementById('yaml-expand-all');
   var collapseBtn = document.getElementById('yaml-collapse-all');
+  var formatBtn = document.getElementById('yaml-format');
+  var wrapBtn = document.getElementById('yaml-wrap');
   var splitter = document.getElementById('yaml-splitter');
   var mainEl = document.getElementById('yaml-main');
   var tabButtons = document.querySelectorAll('.yaml-tabs [data-mode]');
@@ -37,6 +51,31 @@
   var expandAllOverride = false;
   var collapseAllOverride = false;
   var selectedId = '';
+  var wrapOn = !!saved.wrap;
+
+  if (typeof saved.splitLeft === 'number') {
+    document.documentElement.style.setProperty('--split-left', saved.splitLeft + '%');
+  }
+
+  function persist() {
+    var pct = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--split-left')
+    );
+    vscodeApi.setState({
+      wrap: wrapOn,
+      splitLeft: Number.isFinite(pct) ? pct : 42,
+    });
+  }
+
+  function applyWrap() {
+    if (!sourceEl) return;
+    sourceEl.wrap = wrapOn ? 'soft' : 'off';
+    sourceEl.classList.toggle('is-wrap', wrapOn);
+    if (wrapBtn) {
+      wrapBtn.classList.toggle('is-active', wrapOn);
+      wrapBtn.title = wrapOn ? '关闭自动换行' : '源码自动换行';
+    }
+  }
 
   function normalizeMode(raw) {
     if (raw === 'source') return 'source';
@@ -52,13 +91,8 @@
     opts = opts || {};
     document.body.setAttribute('data-mode', mode);
 
-    if (toolbarEl) {
-      if (mode === 'source') {
-        toolbarEl.style.display = 'none';
-      } else {
-        toolbarEl.style.display = '';
-      }
-    }
+    // 源码模式仍显示工具条（格式化/换行），搜索区用 CSS 弱化
+    if (toolbarEl) toolbarEl.style.display = '';
 
     tabButtons.forEach(function (btn) {
       var m = btn.getAttribute('data-mode');
@@ -99,6 +133,7 @@
       if (self || kids.length) {
         var out = clone(n);
         out.children = self ? (n.children || []).map(clone) : kids;
+        out._match = self;
         return out;
       }
       return null;
@@ -115,6 +150,8 @@
     if (collapseAllOverride) return false;
     if (expandAllOverride) return true;
     if (collapsedIds.has(node.id)) return false;
+    // 搜索时自动展开匹配链
+    if (searchEl && searchEl.value.trim()) return true;
     return depth < defaultExpandDepth;
   }
 
@@ -139,7 +176,6 @@
     });
   }
 
-  /** 根据 range 在右侧源码中定位选中 */
   function revealInSource(range) {
     if (!sourceEl || !range || typeof range.start !== 'number') return;
     var start = Math.max(0, range.start);
@@ -150,15 +186,81 @@
     try {
       sourceEl.focus();
       sourceEl.setSelectionRange(start, end);
-      // 滚到选区：用临时 mirror 估算
       var before = sourceEl.value.slice(0, start);
       var lines = before.split('\n').length;
-      var lineHeight = 19.5;
-      var target = Math.max(0, (lines - 4) * lineHeight);
-      sourceEl.scrollTop = target;
+      sourceEl.scrollTop = Math.max(0, (lines - 4) * 19.5);
     } catch (_) {
       /* ignore */
     }
+  }
+
+  /** 树节点 → JS（与 host yamlParser.nodeToJs 对齐，供复制 JSON） */
+  function nodeToJs(n) {
+    if (n.type === 'object' || n.type === 'document') {
+      var o = {};
+      (n.children || []).forEach(function (c) {
+        o[c.key] = nodeToJs(c);
+      });
+      return o;
+    }
+    if (n.type === 'array') {
+      return (n.children || []).map(nodeToJs);
+    }
+    if (n.type === 'null') return null;
+    if (n.type === 'boolean') return n.valueText === 'true';
+    if (n.type === 'number') {
+      var num = Number(n.valueText);
+      return isFinite(num) ? num : n.valueText;
+    }
+    return n.valueText;
+  }
+
+  function copyPath(path) {
+    if (!path) return;
+    vscodeApi.postMessage({ type: 'copyPath', path: path });
+  }
+
+  function copyText(text, label) {
+    vscodeApi.postMessage({ type: 'copyText', text: text, label: label || '已复制' });
+  }
+
+  function makeCopyMenu(node) {
+    var wrap = document.createElement('span');
+    wrap.className = 'yaml-copy-group';
+
+    function addBtn(label, title, fn) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'yaml-copy';
+      b.title = title;
+      b.textContent = label;
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        fn();
+      });
+      wrap.appendChild(b);
+    }
+
+    if (node.path) {
+      addBtn('路径', '复制路径', function () {
+        copyPath(node.path);
+      });
+    }
+    if (!isContainer(node.type) && node.type !== 'error') {
+      addBtn('值', '复制值', function () {
+        copyText(node.valueText, '已复制值');
+      });
+    }
+    if (node.type !== 'error') {
+      addBtn('JSON', '复制为 JSON', function () {
+        try {
+          copyText(JSON.stringify(nodeToJs(node), null, 2), '已复制 JSON');
+        } catch (_) {
+          copyText(String(node.valueText || ''), '已复制');
+        }
+      });
+    }
+    return wrap;
   }
 
   function renderNode(node, depth) {
@@ -170,10 +272,12 @@
     li.className = 'yaml-node';
     li.setAttribute('role', 'treeitem');
     li.setAttribute('data-id', node.id);
-    li.setAttribute('data-path', node.path || '');
 
     var row = document.createElement('div');
-    row.className = 'yaml-row' + (selectedId === node.id ? ' is-selected' : '');
+    row.className =
+      'yaml-row' +
+      (selectedId === node.id ? ' is-selected' : '') +
+      (node._match ? ' is-match' : '');
     row.style.paddingLeft = depth * 12 + 4 + 'px';
 
     var twisty = document.createElement('button');
@@ -222,18 +326,7 @@
       row.appendChild(countSpan);
     }
 
-    if (node.path) {
-      var copyBtn = document.createElement('button');
-      copyBtn.type = 'button';
-      copyBtn.className = 'yaml-copy';
-      copyBtn.title = '复制路径';
-      copyBtn.textContent = '复制';
-      copyBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        vscodeApi.postMessage({ type: 'copyPath', path: node.path });
-      });
-      row.appendChild(copyBtn);
-    }
+    row.appendChild(makeCopyMenu(node));
 
     row.addEventListener('click', function () {
       selectedId = node.id;
@@ -245,9 +338,12 @@
       if (node.range) revealInSource(node.range);
     });
 
-    row.addEventListener('dblclick', function () {
-      if (node.path) {
-        vscodeApi.postMessage({ type: 'copyPath', path: node.path });
+    row.addEventListener('dblclick', function (e) {
+      if (container) {
+        e.preventDefault();
+        toggleCollapse(node.id);
+      } else if (node.path) {
+        copyPath(node.path);
       }
     });
 
@@ -288,9 +384,16 @@
     rerenderTree();
   }
 
+  function updateSearchClear() {
+    if (!searchClear || !searchEl) return;
+    var has = !!searchEl.value.trim();
+    searchClear.hidden = !has;
+  }
+
   function rerenderTree() {
     if (!treeEl) return;
     treeEl.innerHTML = '';
+    updateSearchClear();
 
     if (!lastParse && !lastGoodParse) {
       treeEl.innerHTML =
@@ -356,9 +459,6 @@
 
   function applyDocument(msg) {
     if (typeof msg.source === 'string' && sourceEl && !applyingSource) {
-      if (document.activeElement === sourceEl && sourceEl.value !== msg.source) {
-        // 用户正在编辑：仅当外部变更时才覆盖（仍同步）
-      }
       if (sourceEl.value !== msg.source) {
         applyingSource = true;
         var st = sourceEl.selectionStart;
@@ -388,7 +488,6 @@
     rerenderTree();
   }
 
-  /* —— 分隔条拖动 —— */
   function initSplitter() {
     if (!splitter || !mainEl) return;
     var dragging = false;
@@ -409,6 +508,7 @@
       splitter.classList.remove('is-dragging');
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      persist();
     }
 
     splitter.addEventListener('mousedown', function (e) {
@@ -437,9 +537,52 @@
     });
   }
 
-  if (searchEl) searchEl.addEventListener('input', function () { rerenderTree(); });
+  if (searchEl) {
+    searchEl.addEventListener('input', function () {
+      rerenderTree();
+    });
+  }
+  if (searchClear) {
+    searchClear.addEventListener('click', function () {
+      if (searchEl) searchEl.value = '';
+      rerenderTree();
+      if (searchEl) searchEl.focus();
+    });
+  }
   if (expandBtn) expandBtn.addEventListener('click', expandAll);
   if (collapseBtn) collapseBtn.addEventListener('click', collapseAll);
+  if (formatBtn) {
+    formatBtn.addEventListener('click', function () {
+      vscodeApi.postMessage({
+        type: 'formatYaml',
+        source: sourceEl ? sourceEl.value : '',
+      });
+    });
+  }
+  if (wrapBtn) {
+    wrapBtn.addEventListener('click', function () {
+      wrapOn = !wrapOn;
+      applyWrap();
+      persist();
+    });
+  }
+
+  // ⌘/Ctrl+F → 搜索；⌘/Ctrl+S 不拦截（交给宿主）
+  window.addEventListener('keydown', function (e) {
+    var mod = e.metaKey || e.ctrlKey;
+    if (mod && (e.key === 'f' || e.key === 'F')) {
+      if (searchEl && mode !== 'source') {
+        e.preventDefault();
+        searchEl.focus();
+        searchEl.select();
+      }
+    }
+    if (mod && (e.key === 'l' || e.key === 'L') && e.shiftKey) {
+      // Ctrl+Shift+L 格式化
+      e.preventDefault();
+      if (formatBtn) formatBtn.click();
+    }
+  });
 
   window.addEventListener('message', function (event) {
     var msg = event.data;
@@ -465,6 +608,7 @@
     }
   });
 
+  applyWrap();
   initSplitter();
   setMode(document.body.getAttribute('data-mode') || 'split', { silent: true });
   vscodeApi.postMessage({ type: 'webviewReady' });
@@ -476,6 +620,7 @@
     expandAll: expandAll,
     collapseAll: collapseAll,
     applyDocument: applyDocument,
+    nodeToJs: nodeToJs,
     getLastParse: function () {
       return lastParse;
     },

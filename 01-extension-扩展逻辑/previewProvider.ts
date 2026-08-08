@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseYamlToTree } from './yamlParser';
+import { formatYaml, parseYamlToTree } from './yamlParser';
 import {
   EditorMode,
   parseViewMode,
@@ -168,8 +168,30 @@ export class PreviewProvider implements vscode.CustomTextEditorProvider {
         case 'copyPath': {
           if (typeof msg.path === 'string' && msg.path) {
             await vscode.env.clipboard.writeText(msg.path);
-            void vscode.window.setStatusBarMessage(`已复制: ${msg.path}`, 2000);
+            void vscode.window.setStatusBarMessage(`已复制路径: ${msg.path}`, 2000);
           }
+          break;
+        }
+        case 'copyText': {
+          if (typeof msg.text === 'string') {
+            await vscode.env.clipboard.writeText(msg.text);
+            const label = typeof msg.label === 'string' ? msg.label : '已复制';
+            void vscode.window.setStatusBarMessage(label, 2000);
+          }
+          break;
+        }
+        case 'formatYaml': {
+          const src =
+            typeof msg.source === 'string' ? msg.source : document.getText();
+          const result = formatYaml(src);
+          if (!result.ok) {
+            void vscode.window.showWarningMessage(`格式化失败: ${result.error}`);
+            break;
+          }
+          if (result.text !== document.getText()) {
+            enqueueSourceEdit(result.text);
+          }
+          void vscode.window.setStatusBarMessage('YAML 已格式化', 2000);
           break;
         }
       }
@@ -225,10 +247,13 @@ export class PreviewProvider implements vscode.CustomTextEditorProvider {
     <div class="yaml-toolbar" id="yaml-toolbar">
       <div class="yaml-search-wrap">
         <span class="yaml-search-icon" aria-hidden="true">⌕</span>
-        <input type="search" id="yaml-search" class="yaml-search" placeholder="搜索 key / value / path…" aria-label="搜索" />
+        <input type="search" id="yaml-search" class="yaml-search" placeholder="搜索 key / value / path… (⌘/Ctrl+F)" aria-label="搜索" />
+        <button type="button" id="yaml-search-clear" class="yaml-search-clear" title="清除搜索" hidden aria-label="清除">×</button>
       </div>
       <button type="button" id="yaml-expand-all" class="yaml-btn" title="展开全部">展开</button>
       <button type="button" id="yaml-collapse-all" class="yaml-btn" title="折叠全部">折叠</button>
+      <button type="button" id="yaml-format" class="yaml-btn" title="格式化 YAML">格式化</button>
+      <button type="button" id="yaml-wrap" class="yaml-btn" title="源码自动换行">换行</button>
       <span id="yaml-meta" class="yaml-meta" aria-live="polite"></span>
     </div>
   </header>
@@ -246,7 +271,7 @@ export class PreviewProvider implements vscode.CustomTextEditorProvider {
     </section>
   </main>
   <footer class="yaml-footer">
-    <span id="yaml-hint">左树右码 · 点树节点定位源码 · 双击复制路径 · 拖中间分隔条调宽度</span>
+    <span id="yaml-hint">点树定位源码 · 悬停复制路径/值/JSON · ⌘/Ctrl+F 搜索 · 格式化 · 拖分隔条</span>
   </footer>
   <script src="${mainJsUri}"></script>
 </body>

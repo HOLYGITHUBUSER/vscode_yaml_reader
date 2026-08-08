@@ -2,7 +2,7 @@
   "name": "yaml-reader",
   "displayName": "YAML Reader",
   "description": "YAML 阅读器：左结构树 + 右可编辑源码（分栏，可拖分隔条）",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "yaml-reader",
   "license": "MIT",
   "icon": "00-config-工程配置/icon-扩展图标.png",
